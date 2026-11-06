@@ -176,6 +176,8 @@ test('事实入库闸：L1 变更叙事、L2 代码坐标与构建产物一律�
   assert.equal(factGate('本机未装 docker，容器一律用 wslc').ok, true)
   assert.equal(factGate('GitHub 出网必须走代理 http://127.0.0.1:7897').ok, true, 'IPv4 不能被版本号规则误杀')
   assert.equal(factGate('数据根 D:\\AppData\\waystone\\data，配置只来自 profile 的 patch').ok, true)
+  // 回归：裸 N/M 曾把规范编号 DSC-04..09/14 当成测试计数（误伤）
+  assert.equal(factGate('静态审计覆盖 DSC-04..09/14，需带 --exec 才实际执行').ok, true, '编号不是测试计数')
 
   // L1：变更叙事 → 建议写 state
   const l1 = factGate('判官并发由 2 改为 6，已落地')
