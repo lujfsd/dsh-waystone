@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isInjectedMessage, textOfStreamFrame, RECORD_PROPERTIES } from '../lib/index.js'
-import { buildJudgeInput, capNarrative } from '../lib/judge.js'
+import { buildJudgeInput, capNarrative, callJudge } from '../lib/judge.js'
 import { computeStatus } from '../lib/schema.js'
 import { CONTRACT } from '../lib/contract.js'
 
@@ -139,4 +139,28 @@ test('deadend 判据排除「已修复缺陷 / 元讨论」，契约 / 工具描
     assert.ok(text.includes('已修复的代码缺陷'), where + ' 缺「已修复的代码缺陷不算死路」判据')
     assert.ok(text.includes('关于记忆系统自身写法的反思'), where + ' 缺「元讨论不算死路」判据')
   }
+})
+
+// 回归（2026-11-06）：整理官一次 104 s 后返回零字符，报「输出不是 JSON」像解析问题，其实是模型没写。
+// 空输出要重试一次；两次都空就把 finish/usage 带进错误文案，别让人再靠猜。
+test('callJudge：空输出重试一次，仍空则报「空文本」并带 finish', async () => {
+  let calls = 0
+  const flaky = {
+    async *stream() {
+      calls += 1
+      if (calls === 1) return
+      yield { type: 'text-delta', text: '{"groups":[]}' }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    },
+  }
+  const selection = { provider: 'p', model: 'm' }
+  const out = await callJudge({ llm: flaky, selection, input: { system: 's', user: 'u' } })
+  assert.equal(out, '{"groups":[]}')
+  assert.equal(calls, 2, '空输出必须重试一次')
+
+  const silent = { async *stream() { yield { type: 'finish', reason: { kind: 'length' } } } }
+  await assert.rejects(
+    () => callJudge({ llm: silent, selection, input: { system: 's', user: 'u' } }),
+    /空文本（finish=length/,
+  )
 })
