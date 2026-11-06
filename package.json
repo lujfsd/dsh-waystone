@@ -1,6 +1,6 @@
 {
   "name": "dsh-waystone",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "waystone（路标）· DSH 工作记忆插件：只记上下文一丢就找不回来的东西（交接状态 / 用户规约 / 死路 / 指南），append-only JSONL，global+workspace 两级作用域。",
   "repository": {
     "type": "git",
