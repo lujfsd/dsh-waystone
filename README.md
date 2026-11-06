@@ -11,6 +11,30 @@ DSH 的**工作记忆插件**。上下文一压缩、一换窗口，前面聊过
 - **试过的死路**：错的方向记下来，防止下次又走一遍。
 - **环境事实**：构建/测试/运行命令、平台限制这些「一换窗口就要重新摸索」的东西，汇总成 `[项目档案]` 常驻注入。
 
+## 安装
+
+包本体是一个标准 npm 包（16 个文件，无运行时依赖）；目前**尚未发布到 npm registry**，用下面任一来源：
+
+```bash
+# 1) GitHub Release 的 tarball（推荐）
+npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.0/dsh-waystone-0.1.0.tgz
+
+# 2) 已经下载到本地的同一个 tarball
+npm i /path/to/dsh-waystone-0.1.0.tgz
+
+# 3) 从源码（开发/改代码时）
+git clone https://github.com/lujfsd/dsh-waystone.git
+```
+
+装进 DSH：把包目录或 `.tgz` 的绝对路径交给插槽管理即可（`pnpm add <tgz>` 实测会把 `dsh-waystone` 自动登记进 profile 的 `bundles`）：
+
+```
+plugin_manager(install_bundle, target=<包目录或 .tgz 的绝对路径>)
+```
+
+然后**重启 DSH**：服务端模块与客户端 bundle 都在宿主启动时加载，不重启不会生效。重启后会话顶部出现「路标」标签页，说明装配成功。
+
+> `github.com` 在某些网络下需要走代理：`HTTPS_PROXY=http://127.0.0.1:7897 npm i <上面那个 URL>`。等 `dsh-waystone` 上架 npm 后，这里可以直接用 `npm i dsh-waystone`。
 
 ## 模型每轮看到什么
 
