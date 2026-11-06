@@ -17,10 +17,10 @@ DSH 的**工作记忆插件**。上下文一压缩、一换窗口，前面聊过
 
 ```bash
 # 1) GitHub Release 的 tarball（推荐）
-npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.0/dsh-waystone-0.1.0.tgz
+npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.1/dsh-waystone-0.1.1.tgz
 
 # 2) 已经下载到本地的同一个 tarball
-npm i /path/to/dsh-waystone-0.1.0.tgz
+npm i /path/to/dsh-waystone-0.1.1.tgz
 
 # 3) 从源码（开发/改代码时）
 git clone https://github.com/lujfsd/dsh-waystone.git
