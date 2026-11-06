@@ -26,11 +26,12 @@ test('判官输入带现有死路清单（最多 8 条、每条截 80 字），�
   assert.equal(status.get('as_new'), 'active')
 })
 
-test('判官输入带现有 fact（最多 20 条、每条截 80 字），并教它用 supersedes 更新旧事实', () => {
-  const facts = Array.from({ length: 25 }, (_, i) => ({ id: 'as_f' + i, body: '事实 ' + i + ' ' + 'y'.repeat(95) }))
+test('判官输入带现有 fact（最多 20 条、每条截 80 字、带分钟级时间），并教它用 supersedes 更新旧事实', () => {
+  const facts = Array.from({ length: 25 }, (_, i) => ({ id: 'as_f' + i, body: '事实 ' + i + ' ' + 'y'.repeat(95), ts: '2026-11-06T10:07:09+08:00' }))
   const { system, user } = buildJudgeInput({ facts })
   assert.ok(user.includes('【现有 fact'), user.slice(0, 400))
   assert.ok(user.includes('as_f0'))
+  assert.ok(user.includes('as_f0（11-06 10:07）'), '新旧判断全靠写入时间，必须摆进输入：' + user.slice(0, 500))
   assert.ok(!user.includes('as_f20'), '只摆最新 20 条')
   assert.ok(!user.includes('y'.repeat(85)), '每条截到 80 字，别把判官输入撑爆')
   assert.ok(system.includes('写 fact 前对照'), system)

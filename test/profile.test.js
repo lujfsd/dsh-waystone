@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PROFILE_MAX_CHARS, profileHash, buildProfileInput, parseProfileOutput, pickProfile, attachSources } from '../lib/profile.js'
+import { PROFILE_MAX_CHARS, profileHash, buildProfileInput, parseProfileOutput, pickProfile, attachSources, formatMinute } from '../lib/profile.js'
 import { validateRecord } from '../lib/schema.js'
 import { renderTail } from '../lib/render.js'
 
@@ -37,6 +37,24 @@ test('档案输入：带上 fact 正文、id 与上限', () => {
   assert.ok(system.includes(String(PROFILE_MAX_CHARS)), system)
   assert.ok(system.includes('不得推断'), system)
   assert.ok(system.includes('提炼') && system.includes('1500'), '档案提示词要写清「提炼不是拼接」与长度目标：' + system)
+})
+
+// 回归：档案里「并发上限 2」和「并发上限 6」并存过 —— 因为输入不带时间，汇总官无从裁决。
+test('档案输入带写入时间（分钟级），并要求同一事实轴冲突取新', () => {
+  const { system, user } = buildProfileInput({
+    facts: [
+      fact('as_1', '子代理共享全局并发上限 2', { ts: '2026-11-06T09:00:00+08:00' }),
+      fact('as_2', '子代理共享全局并发上限 6', { ts: '2026-11-06T10:07:09+08:00' }),
+    ],
+    project: 'x',
+  })
+  assert.ok(user.includes('as_1（11-06 09:00）'), user)
+  assert.ok(user.includes('as_2（11-06 10:07）'), '要精确到分钟：' + user)
+  assert.ok(system.includes('冲突取新'), system)
+  assert.match(system, /只写最新的那一条/, system)
+  assert.equal(formatMinute('2026-11-06T10:07:09+08:00'), '11-06 10:07')
+  assert.equal(formatMinute(''), '')
+  assert.equal(formatMinute('不是时间'), '')
 })
 
 test('来源 id：插件确定性拼接（去重、无 id 不加行、总长不超上限）', () => {
