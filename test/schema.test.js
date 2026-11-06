@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  validateRecord, computeStatus, cmpStrength, quotaVictim, strengthRank, BODY_MAX_CHARS,
+  validateRecord, computeStatus, cmpStrength, quotaVictim, strengthRank, factGate, BODY_MAX_CHARS,
 } from '../lib/schema.js'
 
 const probe = { lineSha256: () => undefined, fileExists: () => false }
@@ -167,4 +167,34 @@ test('配额淘汰：不超限不淘汰，超限淘汰最久未命中 + 最弱�
   assert.equal(quotaVictim(rules, 30), null)
   const victim = quotaVictim(rules, 2, (id) => (id === 'as_00000a' ? 0 : 1))
   assert.equal(victim, 'as_00000a')
+})
+
+// 事实的唯一口径：长期不变、与代码实现无关。两类内容不许进 fact：
+// L1 变更叙事（会变成 state 的事）——L2 代码坐标/构建产物（会随代码变的值）。
+test('事实入库闸：L1 变更叙事、L2 代码坐标与构建产物一律拒收，并给改写方向', () => {
+  // 该收的：环境/约束/路径
+  assert.equal(factGate('本机未装 docker，容器一律用 wslc').ok, true)
+  assert.equal(factGate('GitHub 出网必须走代理 http://127.0.0.1:7897').ok, true, 'IPv4 不能被版本号规则误杀')
+  assert.equal(factGate('数据根 D:\\AppData\\waystone\\data，配置只来自 profile 的 patch').ok, true)
+
+  // L1：变更叙事 → 建议写 state
+  const l1 = factGate('判官并发由 2 改为 6，已落地')
+  assert.equal(l1.ok, false)
+  assert.equal(l1.code, 'L1')
+  assert.equal(l1.suggest, 'state')
+
+  // L2：代码坐标 / 构建产物 → 建议写 conclusion
+  for (const body of [
+    '代码锚点：topicIdOf() 在 schema.js:24-29',
+    '宿主版本 0.2.2-rc.1',
+    'npm pack 只收 15 files / 84.5 KB',
+    '测试 100/100 通过',
+    '判官超时 180 s',
+  ]) {
+    const g = factGate(body)
+    assert.equal(g.ok, false, body + ' 应被拒')
+    assert.equal(g.code, 'L2', body)
+    assert.equal(g.suggest, 'conclusion', body)
+  }
+  assert.match(l1.message, /改写成 state/, '拒收必须带改写方向')
 })
