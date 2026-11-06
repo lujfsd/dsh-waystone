@@ -46,23 +46,21 @@ test('baseDirOf：apply 经 ctx.inject 交给 store 的 baseDir 优先，卸载�
 test('readConfig：行配置非法值报字段路径、合法值生效、活格子解包、空值不报错', () => {
   const ctx = { baseDir: tmp() }
 
-  const bad = readConfig({ rulesMax: 9999, injectBudgetTokens: 'x', compactConclusionMax: 0, compactFactMax: 'x', compactBatch: 5, dataDir: 3 })
+  const bad = readConfig({ rulesMax: 9999, injectBudgetTokens: 'x', compactPoolMax: 0, compactBatch: 5, dataDir: 3 })
   assert.equal(bad.config.rulesMax, 30)
-  assert.equal(bad.config.compactConclusionMax, 60, '越界回落默认值')
+  assert.equal(bad.config.compactPoolMax, 60, '越界回落默认值')
   assert.equal(bad.config.compactBatch, 60)
   assert.match(bad.error, /config\.rulesMax/)
   assert.match(bad.error, /config\.injectBudgetTokens/)
-  assert.match(bad.error, /config\.compactConclusionMax/)
-  assert.match(bad.error, /config\.compactFactMax/)
+  assert.match(bad.error, /config\.compactPoolMax/)
   assert.match(bad.error, /config\.compactBatch/)
   assert.match(bad.error, /config\.dataDir/)
 
-  const ok = readConfig({ rulesMax: 5, injectBudgetTokens: 300, compactConclusionMax: 12, compactFactMax: 8, compactBatch: 20, dataDir: '' })
+  const ok = readConfig({ rulesMax: 5, injectBudgetTokens: 300, compactPoolMax: 30, compactBatch: 20, dataDir: '' })
   assert.equal(ok.error, null)
   assert.equal(ok.config.rulesMax, 5)
   assert.equal(ok.config.injectBudgetTokens, 300)
-  assert.equal(ok.config.compactConclusionMax, 12)
-  assert.equal(ok.config.compactFactMax, 8)
+  assert.equal(ok.config.compactPoolMax, 30)
   assert.equal(ok.config.compactBatch, 20)
 
   const cell = readConfig({ rulesMax: { get: () => 7 } })

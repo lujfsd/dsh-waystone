@@ -392,15 +392,17 @@ test('诊断：发现旧数据根时给迁移入口，当前根非空只提示�
   }
 })
 
-test('行配置：6 个旋钮都渲染、默认值来自 fallback、文案全中文且不含过时口径', async () => {
+test('行配置：5 个旋钮都渲染、默认值来自 fallback、文案全中文且不含过时口径', async () => {
   const mod = await loadClient()
   const form = { state: { value: {}, revision: 1, writable: true }, mutate() {} }
   const flat = JSON.stringify(renderDeep(mod.RowConfigView({ view: 'form', form })))
-  for (const key of ['rulesMax', 'injectBudgetTokens', 'compactConclusionMax', 'compactFactMax', 'compactBatch', 'dataDir']) {
+  for (const key of ['rulesMax', 'injectBudgetTokens', 'compactPoolMax', 'compactBatch', 'dataDir']) {
     assert.ok(flat.includes('waystone-' + key), '配置表单缺少字段 ' + key)
   }
-  // 空配置下用 FIELDS.fallback：三个整理旋钮要显示真实默认值
-  assert.ok(flat.includes('"value":"60"') && flat.includes('"value":"40"'), '整理阈值默认值没渲染出来')
+  // 分 kind 的两个阈值已废止：页面不该再渲染它们
+  assert.ok(!flat.includes('compactConclusionMax') && !flat.includes('compactFactMax'), '旧阈值字段仍留在表单里')
+  // 空配置下用 FIELDS.fallback：整理阈值要显示真实默认值 60
+  assert.ok(flat.includes('"value":"60"'), '整理阈值默认值没渲染出来')
   // 规则上限必须说清只算「规则」这一类、且全局与本工作区各自算
   assert.ok(flat.includes('只算「规则」这一类') && flat.includes('各自封顶'), '规则上限的说明没写清作用域')
   // 文案里不该再出现记录类型/预算单位的英文（面板用的是 规则/结论/事实/词元）
@@ -411,6 +413,6 @@ test('行配置：6 个旋钮都渲染、默认值来自 fallback、文案全中
   assert.ok(!flat.includes('留空 = ~/.dsh'), '存储根说明还是过时的兜底口径')
   // 摘要行带上新增旋钮
   const summary = JSON.stringify(renderDeep(mod.RowConfigView({ view: 'summary', form: { state: { value: {} } } })))
-  assert.ok(summary.includes('整理阈值 结论 60 / 事实 40 条'), summary)
+  assert.ok(summary.includes('整理阈值 60 条'), summary)
   assert.ok(summary.includes('宿主数据目录下的 waystone/data'), summary)
 })

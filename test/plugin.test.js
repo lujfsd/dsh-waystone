@@ -473,11 +473,10 @@ test('只读查看页：/api/waystone/state 给出规约/交接/分组，且一�
 
   const data = JSON.parse(res.body)
   assert.equal(data.rules.workspace, 1)
-  // 配置面：6 个键都要透到查看页（少透一个，页面就显示 undefined，配置也改不动）
+  // 配置面：都要透到查看页（少透一个，页面就显示 undefined，配置也改不动）
   assert.equal(data.config.rulesMax, 30)
   assert.equal(data.config.injectBudgetTokens, 1500)
-  assert.equal(data.config.compactConclusionMax, 60)
-  assert.equal(data.config.compactFactMax, 40)
+  assert.equal(data.config.compactPoolMax, 60)
   assert.equal(data.config.compactBatch, 60)
   assert.ok(data.rulesText.includes('本机不用 pnpm'), data.rulesText)
   // 只有 rule、没有线/死路/指南命中 ⇒ 交接段整段为空，不注入占位
@@ -628,6 +627,25 @@ test('turn 锚点自动补全：conclusion/fact 只给 type 也能落盘', async
   }, { agent })
   assert.equal(w.rejected.length, 0, JSON.stringify(w.rejected))
   assert.equal(w.accepted.length, 2)
+})
+
+// 回归：事实的定义是「长期不变、与代码实现无关」。变更叙事（L1）与代码坐标/构建产物（L2）
+// 一旦进 fact 就会永久留在 [项目档案] 里，所以入库时就拒，并给出改写方向。
+test('事实入库闸经工具可见：变更叙事写 fact 被拒，且给出改写建议', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'waystone-home-'))
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'waystone-work-'))
+  const agent = { id: 's-gate', session: { id: 's-gate', header: { cwd: work } } }
+  const ctx = makeCtx(home)
+  apply(ctx, {})
+  const w = await toolOf(ctx, 'waystone_write').execute({
+    records: [
+      { kind: 'fact', body: '判官并发由 2 改为 6，已落地', anchor: { type: 'turn' }, source: { author: 'tool' }, strength: 'measured' },
+      { kind: 'conclusion', body: '判官并发由 2 改为 6，为的是多会话同时收尾时不互相挤掉', anchor: { type: 'turn' }, source: { author: 'tool', quote: '改为 6' }, strength: 'measured' },
+    ],
+  }, { agent })
+  assert.equal(w.accepted.length, 1, JSON.stringify(w.rejected))
+  assert.equal(w.rejected[0].code, 'E_FACT_GATE', JSON.stringify(w.rejected))
+  assert.match(w.rejected[0].message, /改写成 (state|conclusion)/, '拒收必须给出改写方向，否则模型只会重试同一句')
 })
 
 // 回归：模型主动写时唯一能看到 kind 语义的地方就是这条 description，不能被缩回裸枚举。
