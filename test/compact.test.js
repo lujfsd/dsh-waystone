@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { shouldCompact, buildCompactInput, parseCompactOutput, pickMerges, shrinkTarget, meetsShrink, MIN_SHRINK, HARD_MIN_SHRINK, hardTarget, MAX_GROUPS, MERGE_BODY_MAX_CHARS, MAX_CONCLUSION, MAX_FACT } from '../lib/compact.js'
+import { shouldCompact, buildCompactInput, parseCompactOutput, pickMerges, shrinkTarget, meetsShrink, MIN_SHRINK, HARD_MIN_SHRINK, hardTarget, MAX_GROUPS, MERGE_BODY_MAX_CHARS, MERGE_BODY_PER_MEMBER, mergeBodyBudget, MAX_CONCLUSION, MAX_FACT } from '../lib/compact.js'
 import { computeStatus, topicIdOf } from '../lib/schema.js'
 import { CONFIG_DEFAULTS } from '../lib/store.js'
 
@@ -35,16 +35,40 @@ test('净减目标：提示词目标 40%，落盘硬底线 20%（目标是目标
   // 提示词同时给出目标与底线，且都来自同一组常量的函数
   const { system } = buildCompactInput({ records: Array.from({ length: 10 }, (_, i) => rec('as_' + i, 'conclusion', '判断' + i)) })
   assert.ok(system.includes('≤ 6 条'), system)
-  assert.ok(system.includes('≤ 8 条'), system)
+  assert.ok(system.includes('最多 8 组'), system)
   assert.ok(system.includes('40%') && system.includes('20%'), system)
   assert.ok(system.includes(MERGE_BODY_MAX_CHARS + ' 字'), '提示词要写死合并正文上限，模型不照做就整组白干：' + system)
-  assert.ok(system.includes('提炼'), '要明确「合并是提炼不是拼接」：' + system)
+  assert.ok(system.includes(String(MERGE_BODY_PER_MEMBER) + ' 字'), '提示词要给出「成员数 × 120」的相对预算：' + system)
+  assert.ok(system.includes('提炼'), '要明确「合并是提炼不是摘抄」：' + system)
+  assert.ok(!system.includes('信息不许丢'), '「信息不许丢」会把模型推向拼接，已删除')
 })
 
-test('合并正文上限 800：正好保留，超一字整组丢', () => {
+test('合并正文预算 = min(800, 成员数 × 120)：2 条只给 240 字，超一字整组丢', () => {
   const limitPool = [rec('as_1', 'conclusion', '甲'), rec('as_2', 'conclusion', '乙')]
-  assert.equal(pickMerges([{ kind: 'conclusion', body: '线'.repeat(MERGE_BODY_MAX_CHARS), merge: ['as_1', 'as_2'] }], limitPool).length, 1)
-  assert.equal(pickMerges([{ kind: 'conclusion', body: '线'.repeat(MERGE_BODY_MAX_CHARS + 1), merge: ['as_1', 'as_2'] }], limitPool).length, 0)
+  assert.equal(mergeBodyBudget(2), 240, '2 条合并只值 240 字，模型写 800 就是没提炼')
+  assert.equal(mergeBodyBudget(5), 600)
+  assert.equal(mergeBodyBudget(9), MERGE_BODY_MAX_CHARS, '成员再多也封顶 800')
+  assert.equal(pickMerges([{ kind: 'conclusion', body: '线'.repeat(240), merge: ['as_1', 'as_2'] }], limitPool).length, 1)
+  assert.equal(pickMerges([{ kind: 'conclusion', body: '线'.repeat(241), merge: ['as_1', 'as_2'] }], limitPool).length, 0)
+})
+
+test('超长组只丢自己：同一批里合规的组照常合，超长组记进 dropped 且不 retract 来源', () => {
+  const pool = [
+    rec('as_1', 'conclusion', '甲'), rec('as_2', 'conclusion', '乙'),
+    rec('as_3', 'conclusion', '丙'), rec('as_4', 'conclusion', '丁'),
+  ]
+  const dropped = []
+  const ops = pickMerges([
+    { kind: 'conclusion', body: '合规的合并', merge: ['as_1', 'as_2'] },
+    { kind: 'fact', body: '超'.repeat(mergeBodyBudget(2) + 50), merge: ['as_3', 'as_4'] },
+  ], pool, dropped)
+  assert.equal(ops.length, 1, '合规组必须落盘，不能被超重组拖死')
+  assert.deepEqual(ops[0].retracts, ['as_1', 'as_2'], '超长组的来源不能被 retract，下一轮还要重试')
+  assert.equal(dropped.length, 1)
+  assert.equal(dropped[0].code, 'E_BODY_GROUP')
+  assert.equal(dropped[0].merges, 2)
+  assert.equal(dropped[0].max, mergeBodyBudget(2), '记的应是这一组自己的预算，不是全局 800')
+  assert.ok(dropped[0].chars > dropped[0].max, '要记下实际字数，否则看不出差多少')
 })
 
 test('整理官输出：剥代码块、取第一个 JSON 对象', () => {

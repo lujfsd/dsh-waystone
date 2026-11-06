@@ -509,7 +509,7 @@ test('空目录冷启动不崩：无 config、无数据也能渲染', () => {
   assert.equal(ctx._contexts[0].text({ agent }), '')
 })
 
-test('判官有界并发 ≤2，且卸载 abort 在飞调用（LEV-7）', async () => {
+test('判官有界并发 ≤6，且卸载 abort 在飞调用（LEV-7）', async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'waystone-home-'))
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'waystone-work-'))
   let started = 0
@@ -535,21 +535,21 @@ test('判官有界并发 ≤2，且卸载 abort 在飞调用（LEV-7）', async 
   })
   apply(ctx, {})
 
-  const agents = [0, 1, 2, 3].map((i) => ({ id: 's-j' + i, session: { id: 's-j' + i, header: { cwd: work } } }))
+  const agents = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 's-j' + i, session: { id: 's-j' + i, header: { cwd: work } } }))
   for (const agent of agents) {
     // file-change 是判官的四类触发之一
     ctx.fire('tools/result', { agent, name: 'write' }, { isError: false })
     ctx.fire('agent/turn-stopping', { agent, turn: 1 })
   }
   await new Promise((resolve) => setTimeout(resolve, 15))
-  assert.equal(started, 2, '同时只允许 2 条判官在飞，实际 ' + started)
+  assert.equal(started, 6, '同时只允许 6 条判官在飞，实际 ' + started)
 
   // 卸载：在飞的判官必须被取消，且取消不算失败
   // 注意 effects[0] 是路由那条（在 inject 里先注册），表面 effect 是最末一个
   assert.ok(ctx._effects.every((fn) => typeof fn === 'function'))
   for (const dispose of ctx._effects) dispose()
   await new Promise((resolve) => setTimeout(resolve, 15))
-  assert.equal(aborted, 2, '卸载应 abort 在飞的 ' + 2 + ' 条，实际 ' + aborted)
+  assert.equal(aborted, 6, '卸载应 abort 在飞的 ' + 6 + ' 条，实际 ' + aborted)
 
   // session/disposed 两种载荷形态都不得抛
   assert.doesNotThrow(() => ctx.fire('session/disposed', { id: 's-j0' }))
