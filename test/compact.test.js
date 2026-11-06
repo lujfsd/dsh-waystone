@@ -1,23 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { shouldCompact, buildCompactInput, parseCompactOutput, pickMerges, shrinkTarget, meetsShrink, MIN_SHRINK, HARD_MIN_SHRINK, hardTarget, MAX_GROUPS, MERGE_BODY_MAX_CHARS, MERGE_BODY_PER_MEMBER, mergeBodyBudget, MAX_CONCLUSION, MAX_FACT } from '../lib/compact.js'
+import { shouldCompact, buildCompactInput, parseCompactOutput, pickMerges, pickBatch, shrinkTarget, meetsShrink, MIN_SHRINK, HARD_MIN_SHRINK, hardTarget, MAX_GROUPS, MERGE_BODY_MAX_CHARS, MERGE_BODY_PER_MEMBER, mergeBodyBudget, MAX_POOL } from '../lib/compact.js'
 import { computeStatus, topicIdOf } from '../lib/schema.js'
 import { CONFIG_DEFAULTS } from '../lib/store.js'
 
 const rec = (id, kind, body, extra = {}) => ({ id, kind, body, ts: '2026-11-05T00:00:00Z', sid: 's', turn: 1, ...extra })
 
-test('整理触发：只看阈值（可被配置覆盖），没有冷却', () => {
-  assert.equal(shouldCompact({ conclusion: MAX_CONCLUSION - 1, fact: 0 }), false, '没超限不该整理')
-  assert.equal(shouldCompact({ conclusion: MAX_CONCLUSION, fact: 0 }), true)
-  assert.equal(shouldCompact({ conclusion: 0, fact: 40 }), true, 'fact 超限也触发')
-  assert.equal(shouldCompact({ conclusion: 0, fact: 39 }), false)
-  // 配置覆盖：阈值即触发线，等号算到；差一条不触发
-  assert.equal(shouldCompact({ conclusion: 10, fact: 0 }, { conclusion: 10, fact: 40 }), true)
-  assert.equal(shouldCompact({ conclusion: 9, fact: 0 }, { conclusion: 10, fact: 40 }), false, '9 < 10 不该整理')
+test('整理触发：看池内总数（结论 + 事实），单一阈值，没有冷却', () => {
+  assert.equal(shouldCompact(MAX_POOL - 1), false, '没超限不该整理')
+  assert.equal(shouldCompact(MAX_POOL), true, '等号算到')
+  assert.equal(shouldCompact(0), false)
+  // 配置覆盖：阈值即触发线
+  assert.equal(shouldCompact(10, 10), true)
+  assert.equal(shouldCompact(9, 10), false)
   // 默认值必须与 store.CONFIG_FIELDS 的 fallback 一致，否则「没配」和「配了默认值」行为分叉
-  assert.equal(CONFIG_DEFAULTS.compactConclusionMax, MAX_CONCLUSION)
-  assert.equal(CONFIG_DEFAULTS.compactFactMax, MAX_FACT)
+  assert.equal(CONFIG_DEFAULTS.compactPoolMax, MAX_POOL)
   assert.equal(CONFIG_DEFAULTS.compactBatch, 60)
+  assert.equal(CONFIG_DEFAULTS.compactConclusionMax, undefined, '分 kind 的阈值已废止')
+  assert.equal(CONFIG_DEFAULTS.compactFactMax, undefined)
 })
 
 test('净减目标：提示词目标 40%，落盘硬底线 20%（目标是目标，底线是底线）', () => {
@@ -43,6 +43,50 @@ test('净减目标：提示词目标 40%，落盘硬底线 20%（目标是目标
   assert.ok(!system.includes('信息不许丢'), '「信息不许丢」会把模型推向拼接，已删除')
 })
 
+test('批次按池内构成分配：每类至少 1 个位子，批次装满', () => {
+  const mk = (kind, n, prefix) => Array.from({ length: n }, (_, i) => ({ id: prefix + i, kind, body: 'x', ts: '2026-11-06T10:00:00+08:00' }))
+  // 80 结论 + 10 事实：按构成分（60×80/90≈53 结论 / 7 事实）
+  const pool = [...mk('conclusion', 80, 'as_c'), ...mk('fact', 10, 'as_f')]
+  const batch = pickBatch(pool, { batch: 60 })
+  assert.equal(batch.length, 60)
+  assert.equal(batch.filter((r) => r.kind === 'fact').length, 7)
+  assert.equal(batch.filter((r) => r.kind === 'conclusion').length, 53)
+
+  // 事实极少时也必须进批次（旧实现踩过的坑：最新 60 条全是结论，一条事实都没有）
+  const pool2 = [...mk('conclusion', 100, 'as_c'), ...mk('fact', 2, 'as_f')]
+  const b2 = pickBatch(pool2, { batch: 60 })
+  assert.equal(b2.filter((r) => r.kind === 'fact').length, 1, '事实再少也留 1 个位子')
+  assert.equal(b2.length, 60)
+
+  // 某类不够 → 余量给另一类
+  const pool3 = mk('conclusion', 70, 'as_c')
+  assert.equal(pickBatch(pool3, { batch: 60 }).length, 60)
+  assert.equal(pickBatch(pool3, { batch: 200 }).length, 70, '池子不够就全送')
+})
+
+test('组内 kind 必须一致：fact 不能混进 conclusion 组（否则那条事实会被判过期而消失）', () => {
+  const pool = [rec('as_1', 'conclusion', '判断'), rec('as_2', 'fact', '事实')]
+  const dropped = []
+  const ops = pickMerges([{ kind: 'conclusion', body: '合并后的判断', merge: ['as_1', 'as_2'] }], pool, dropped)
+  assert.equal(ops.length, 0)
+  assert.equal(dropped[0].code, 'E_KIND_MIX')
+})
+
+test('整理官输入带分钟级写入时间，并写明「kind 一致 / fact 取新 / 分不清不合」', () => {
+  const { system, user } = buildCompactInput({
+    records: [
+      rec('as_1', 'conclusion', '判断甲', { ts: '2026-11-06T09:00:00+08:00' }),
+      rec('as_2', 'fact', '事实乙', { ts: '2026-11-06T10:07:09+08:00' }),
+    ],
+  })
+  assert.ok(user.includes('as_1 | conclusion | [] | 11-06 09:00 |'), user)
+  assert.ok(user.includes('as_2 | fact | [] | 11-06 10:07 |'), user)
+  assert.ok(system.includes('一组只能有一种 kind'), system)
+  assert.ok(system.includes('fact 只留当前值'), system)
+  assert.ok(system.includes('分不清就不合'), system)
+  assert.ok(system.includes('结论 1 / 事实 1'), '批次构成要写进提示词：' + system)
+})
+
 test('合并正文预算 = min(800, 成员数 × 120)：2 条只给 240 字，超一字整组丢', () => {
   const limitPool = [rec('as_1', 'conclusion', '甲'), rec('as_2', 'conclusion', '乙')]
   assert.equal(mergeBodyBudget(2), 240, '2 条合并只值 240 字，模型写 800 就是没提炼')
@@ -55,7 +99,7 @@ test('合并正文预算 = min(800, 成员数 × 120)：2 条只给 240 字，�
 test('超长组只丢自己：同一批里合规的组照常合，超长组记进 dropped 且不 retract 来源', () => {
   const pool = [
     rec('as_1', 'conclusion', '甲'), rec('as_2', 'conclusion', '乙'),
-    rec('as_3', 'conclusion', '丙'), rec('as_4', 'conclusion', '丁'),
+    rec('as_3', 'fact', '丙'), rec('as_4', 'fact', '丁'),
   ]
   const dropped = []
   const ops = pickMerges([
