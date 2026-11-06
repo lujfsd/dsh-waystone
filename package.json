@@ -1,0 +1,116 @@
+{
+  "name": "dsh-waystone",
+  "version": "0.1.0",
+  "description": "waystone（路标）· DSH 工作记忆插件：只记上下文一丢就找不回来的东西（交接状态 / 用户规约 / 死路 / 指南），append-only JSONL，global+workspace 两级作用域。",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lujfsd/dsh-waystone.git"
+  },
+  "homepage": "https://github.com/lujfsd/dsh-waystone#readme",
+  "bugs": {
+    "url": "https://github.com/lujfsd/dsh-waystone/issues"
+  },
+  "author": "lujfsd",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "icon": "icon.svg",
+  "files": [
+    "lib",
+    "scripts",
+    "cordis.patch.yml",
+    "icon.svg"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "memory",
+    "context",
+    "waystone"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.2-0 <0.3.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.4 <5.0.0",
+    "@deepseek-ai/schemastery": "^3.18.4"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    },
+    "capabilities": [
+      "system-prompt:write",
+      "tools:register",
+      "fs:read",
+      "fs:write",
+      "network:ingress",
+      "network:egress"
+    ],
+    "labels": [
+      "prompt-modification",
+      "remote-access"
+    ],
+    "commitments": {
+      "no-session-upload": true,
+      "no-third-party-proxy": true,
+      "no-credential-enumeration": true,
+      "no-silent-prompt-rewrite": true,
+      "no-adapter-bypass": true,
+      "no-webhook-auto-session": true,
+      "no-security-seam-replacement": true,
+      "third-party-endpoint-disclosure": true,
+      "no-danger-full-access": true
+    },
+    "dshhub": {
+      "schemaVersion": 1,
+      "displayName": "路标 · waystone",
+      "summary": "把「上下文一丢就找不回来」的东西记在盘上：交接状态、用户硬规约、死路、可复用指南。跨窗口与压缩后自动注入，append-only JSONL，全局+工作区两级，只在本地。",
+      "categories": [
+        "记忆",
+        "上下文",
+        "Web UI"
+      ],
+      "surfaces": [
+        "host",
+        "web"
+      ],
+      "compatibility": {
+        "dsh": ">=0.2.2-0 <0.3.0",
+        "node": "^22.19.0 || >=24.0.0"
+      }
+    },
+    "disclosure": {
+      "endpoints": [],
+      "retention": "append-only JSONL，落在 <baseDir>/waystone/data（宿主未提供 baseDir 时回落 ~/.dsh/waystone/data；可用 WAYSTONE_DATA_DIR 或设置页的存储根改根）；不自动过期，卸载不删，删除即整目录删除；换根默认不搬数据，显式迁移有两个入口：查看页「诊断 → 旧数据根」（POST /api/waystone/migrate，仅当前根为空时可用，只复制不删源）或 scripts/migrate-data-root.mjs（支持 --merge / --prune）",
+      "systemPrompt": "注册两个 systemPrompt.section（契约常量 order 9400、[规约] order 9410）与一个 systemPrompt.context（交接尾部 order 10000，required: true，不被 suppressRuntimeContext 抑制）；文本全部来自本地记忆文件，只追加自己的段，不重写宿主或其他插件的提示"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "migrate": "node scripts/migrate-data-root.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "3.18.5"
+  }
+}

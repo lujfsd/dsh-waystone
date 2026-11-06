@@ -1,0 +1,30 @@
+# dsh-waystone bundle patch —— 纯 addon：只向根条目表 insert 一行，不改宿主文件。
+# 安装：plugin_manager(install_bundle, target=<本目录绝对路径>)
+#
+# 下面这行的 config 就是插件的**唯一配置面**：设置页「插件 → waystone → 配置」改的也是
+# 这里（宿主把它写回当前 profile 的 cordis.patch.yml 同名行）。六个键都可省略，省略即用
+# 内置默认值；非法值不会静默生效，会在注入面报 [记忆不可用：E_CONFIG config.<键>]，
+# 完整原因见 waystone_status 与 ~/.dsh/waystone/errors.log。
+- insert:
+    - id: waystone
+      name: dsh-waystone
+      config:
+        # 规则（kind=rule，用户的硬要求）条数上限：全局库与各工作区库**各自**计数。
+        # 超限时淘汰「最久没被召回 + 强度最低」那条，新写的照样能进。
+        rulesMax: 30
+        # 每轮注入预算（词元，按 2 个字符 ≈ 1 个词元估算）。
+        # 规约段用全额；交接段只用其中的 55%（最少 300 词元）。
+        injectBudgetTokens: 1500
+        # 本工作区里还「有效」（没被取代、没过期）的结论 / 事实达到多少条时，
+        # 触发一次自动合并整理。目标砍掉 40%，最少也要砍掉 20%。
+        compactConclusionMax: 60
+        compactFactMax: 40
+        # 单次整理最多把最新的多少条送进模型：调小省输入但收敛慢，调大一次到位但输入变长。
+        compactBatch: 60
+        # 存储根（统一根，global/ 与 ws/ 都在它下面）。**填什么就是什么**：不会在你填的目录下
+        # 再自动补一层 waystone/data；根下只会有 global/ 与 ws/ 两个子目录。
+        # 只有留空才用默认根 = 宿主数据目录下的 waystone/data（宿主没给数据目录时退回 ~/.dsh/waystone/data）；
+        # 相对路径按会话工作目录解析。WAYSTONE_DATA_DIR 环境变量优先级更高。
+        # 改这里**不会**自动搬数据：新根是空库，旧数据留在原处，用查看页「诊断 → 旧数据根」
+        # 一键迁移，或跑 scripts/migrate-data-root.mjs。
+        dataDir: ""
