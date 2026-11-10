@@ -5,7 +5,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write      # 必需：OIDC 换 npm 短期凭据
 
 jobs:
   publish:
@@ -14,6 +13,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 24          # engines 要求 >=24 或 ^22.19
-      - run: npm i -g npm@latest    # trusted publishing 需 npm >= 11.5.1
-      - run: npm publish            # prepublishOnly 自动先跑 npm test
+          node-version: 24                          # engines 要求 >=24 或 ^22.19
+          registry-url: https://registry.npmjs.org  # 生成带 ${NODE_AUTH_TOKEN} 的 .npmrc
+      - run: npm publish                            # prepublishOnly 自动先跑 npm test
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # granular token，勾了 Bypass 2FA
