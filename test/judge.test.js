@@ -38,6 +38,22 @@ test('判官输入带现有 fact（最多 20 条、每条截 80 字、带分钟�
   assert.ok(system.includes('supersedes'), system)
 })
 
+// 指南不进整理官（compact 只合 conclusion/fact），判官是它唯一的合并关口：
+// 看不到现有指南，同一套流程改一版就会并排堆成两条，注入里分不清哪条是当前做法。
+test('判官输入带现有指南（最多 8 条、每条截 80 字、带分钟级时间），并教它 supersedes 收掉旧版', () => {
+  const guides = Array.from({ length: 10 }, (_, i) => ({ id: 'as_g' + i, body: '指南 ' + i + ' ' + 'z'.repeat(95), ts: '2026-11-06T10:07:09+08:00' }))
+  const { system, user } = buildJudgeInput({ guides })
+  assert.ok(user.includes('【现有指南'), user.slice(0, 500))
+  assert.ok(user.includes('as_g0'))
+  assert.ok(user.includes('as_g0（11-06 10:07）'), '新旧判断全靠写入时间，必须摆进输入：' + user.slice(0, 600))
+  assert.ok(!user.includes('as_g8'), '只摆最新 8 条')
+  assert.ok(!user.includes('z'.repeat(85)), '每条截到 80 字，别把判官输入撑爆')
+  assert.ok(buildJudgeInput({}).user.includes('（无）'))
+  assert.ok(system.includes('写 guide 前对照'), system)
+  assert.ok(system.includes('别另起一条平行指南'), system)
+  assert.ok(system.includes('两套流程只是前半段相同'), system)
+})
+
 // 回归：判官会把"本轮改了什么/讨论经过"写成 conclusion，一天能堆 47 条流水账；
 // 而这些 kind 从不进上下文（只写不读）。确定性闸门：每轮 conclusion/fact 各至多 1 条。
 test('结论/事实每轮各至多 1 条，其余在写盘前丢弃；其它 kind 不受影响', () => {
