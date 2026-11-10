@@ -1,0 +1,19 @@
+name: publish
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write      # 必需：OIDC 换 npm 短期凭据
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24          # engines 要求 >=24 或 ^22.19
+      - run: npm i -g npm@latest    # trusted publishing 需 npm >= 11.5.1
+      - run: npm publish            # prepublishOnly 自动先跑 npm test
