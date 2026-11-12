@@ -2,6 +2,7 @@ name: publish
 on:
   release:
     types: [published]
+  workflow_dispatch: # 手动补发：Release 触发失败后不必重发 Release
 
 permissions:
   contents: read

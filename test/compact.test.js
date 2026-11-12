@@ -6,6 +6,10 @@ import { CONFIG_DEFAULTS } from '../lib/store.js'
 
 const rec = (id, kind, body, extra = {}) => ({ id, kind, body, ts: '2026-11-05T00:00:00Z', sid: 's', turn: 1, ...extra })
 
+// formatMinute 按宿主机时区渲染（产品有意如此），断言里的分钟数就是"本机时间"。
+// 用本地时间构造再转 ISO，UTC runner 上也得到同一个钟点；写死 +08:00 的 ISO 只在东八区绿。
+const localAt = (h, m) => new Date(2026, 10, 6, h, m).toISOString()
+
 test('整理触发：看池内总数（结论 + 事实），单一阈值，没有冷却', () => {
   assert.equal(shouldCompact(MAX_POOL - 1), false, '没超限不该整理')
   assert.equal(shouldCompact(MAX_POOL), true, '等号算到')
@@ -75,8 +79,8 @@ test('组内 kind 必须一致：fact 不能混进 conclusion 组（否则那条
 test('整理官输入带分钟级写入时间，并写明「kind 一致 / fact 取新 / 分不清不合」', () => {
   const { system, user } = buildCompactInput({
     records: [
-      rec('as_1', 'conclusion', '判断甲', { ts: '2026-11-06T09:00:00+08:00' }),
-      rec('as_2', 'fact', '事实乙', { ts: '2026-11-06T10:07:09+08:00' }),
+      rec('as_1', 'conclusion', '判断甲', { ts: localAt(9, 0) }),
+      rec('as_2', 'fact', '事实乙', { ts: localAt(10, 7) }),
     ],
   })
   assert.ok(user.includes('as_1 | conclusion | [] | 11-06 09:00 |'), user)

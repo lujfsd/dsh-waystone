@@ -82,8 +82,8 @@ test('workspaceKey：中文目录名保留（只剥文件名非法字符），�
   assert.equal(cn, workspaceKey('D:/SR/项目/上汽/大众联合招标TBOX'))
   // 目录名里带 Windows 保留字符（只可能来自非路径输入）仍然要剥掉
   assert.ok(workspaceKey('C:/a/b:c').startsWith('bc-'))
-  // 纯非法/空 basename 回退成 ws
-  assert.match(workspaceKey('C:/'), /^ws-[0-9a-f]{8}$/)
+  // 纯非法/空 basename 回退成 ws（'/' 在 win32/posix 下 basename 都是空串；写 'C:/' 只在 Windows 成立）
+  assert.match(workspaceKey('/'), /^ws-[0-9a-f]{8}$/)
 })
 
 test('resolveDataDir：env 优先于默认', () => {  const dir = tmp()

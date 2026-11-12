@@ -5,6 +5,10 @@ import { buildJudgeInput, capNarrative, callJudge } from '../lib/judge.js'
 import { computeStatus } from '../lib/schema.js'
 import { CONTRACT } from '../lib/contract.js'
 
+// formatMinute 按宿主机时区渲染（产品有意如此），断言里的分钟数就是"本机时间"。
+// 用本地时间构造再转 ISO，UTC runner 上也得到同一个钟点；写死 +08:00 的 ISO 只在东八区绿。
+const localAt = (h, m) => new Date(2026, 10, 6, h, m).toISOString()
+
 // 回归：两个并发会话 45 秒内各写了一条同义死路（as_f8bf2b / as_22b40a，bigram 相似度 0.65）。
 // 判官当时看不到已有死路，只能重复写；把现成的摆进输入，让它自己认。
 test('判官输入带现有死路清单（最多 8 条、每条截 80 字），换措辞的同一件事才不会被重复写', () => {
@@ -27,7 +31,7 @@ test('判官输入带现有死路清单（最多 8 条、每条截 80 字），�
 })
 
 test('判官输入带现有 fact（最多 20 条、每条截 80 字、带分钟级时间），并教它用 supersedes 更新旧事实', () => {
-  const facts = Array.from({ length: 25 }, (_, i) => ({ id: 'as_f' + i, body: '事实 ' + i + ' ' + 'y'.repeat(95), ts: '2026-11-06T10:07:09+08:00' }))
+  const facts = Array.from({ length: 25 }, (_, i) => ({ id: 'as_f' + i, body: '事实 ' + i + ' ' + 'y'.repeat(95), ts: localAt(10, 7) }))
   const { system, user } = buildJudgeInput({ facts })
   assert.ok(user.includes('【现有 fact'), user.slice(0, 400))
   assert.ok(user.includes('as_f0'))
@@ -41,7 +45,7 @@ test('判官输入带现有 fact（最多 20 条、每条截 80 字、带分钟�
 // 指南不进整理官（compact 只合 conclusion/fact），判官是它唯一的合并关口：
 // 看不到现有指南，同一套流程改一版就会并排堆成两条，注入里分不清哪条是当前做法。
 test('判官输入带现有指南（最多 8 条、每条截 80 字、带分钟级时间），并教它 supersedes 收掉旧版', () => {
-  const guides = Array.from({ length: 10 }, (_, i) => ({ id: 'as_g' + i, body: '指南 ' + i + ' ' + 'z'.repeat(95), ts: '2026-11-06T10:07:09+08:00' }))
+  const guides = Array.from({ length: 10 }, (_, i) => ({ id: 'as_g' + i, body: '指南 ' + i + ' ' + 'z'.repeat(95), ts: localAt(10, 7) }))
   const { system, user } = buildJudgeInput({ guides })
   assert.ok(user.includes('【现有指南'), user.slice(0, 500))
   assert.ok(user.includes('as_g0'))

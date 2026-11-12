@@ -6,6 +6,10 @@ import { renderTail } from '../lib/render.js'
 
 const fact = (id, body, extra = {}) => ({ id, kind: 'fact', body, ts: '2026-11-05T00:00:00Z', ...extra })
 
+// formatMinute 按宿主机时区渲染（产品有意如此），断言里的分钟数就是"本机时间"。
+// 用本地时间构造再转 ISO，UTC runner 上也得到同一个钟点；写死 +08:00 的 ISO 只在东八区绿。
+const localAt = (h, m) => new Date(2026, 10, 6, h, m).toISOString()
+
 test('档案指纹：与事实顺序无关，任一 body 变化就变', () => {
   const a = [fact('as_1', '构建：node --test'), fact('as_2', '容器：wslc')]
   const b = [fact('as_2', '容器：wslc'), fact('as_1', '构建：node --test')]
@@ -43,8 +47,8 @@ test('档案输入：带上 fact 正文、id 与上限', () => {
 test('档案输入带写入时间（分钟级），并要求同一事实轴冲突取新', () => {
   const { system, user } = buildProfileInput({
     facts: [
-      fact('as_1', '子代理共享全局并发上限 2', { ts: '2026-11-06T09:00:00+08:00' }),
-      fact('as_2', '子代理共享全局并发上限 6', { ts: '2026-11-06T10:07:09+08:00' }),
+      fact('as_1', '子代理共享全局并发上限 2', { ts: localAt(9, 0) }),
+      fact('as_2', '子代理共享全局并发上限 6', { ts: localAt(10, 7) }),
     ],
     project: 'x',
   })
@@ -52,7 +56,7 @@ test('档案输入带写入时间（分钟级），并要求同一事实轴冲�
   assert.ok(user.includes('as_2（11-06 10:07）'), '要精确到分钟：' + user)
   assert.ok(system.includes('冲突取新'), system)
   assert.match(system, /只写最新的那一条/, system)
-  assert.equal(formatMinute('2026-11-06T10:07:09+08:00'), '11-06 10:07')
+  assert.equal(formatMinute(localAt(10, 7)), '11-06 10:07')
   assert.equal(formatMinute(''), '')
   assert.equal(formatMinute('不是时间'), '')
 })
