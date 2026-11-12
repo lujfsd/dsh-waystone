@@ -13,28 +13,34 @@ DSH 的**工作记忆插件**。上下文一压缩、一换窗口，前面聊过
 
 ## 安装
 
-包本体是一个标准 npm 包（16 个文件，无运行时依赖）；目前**尚未发布到 npm registry**，用下面任一来源：
+包本体是一个标准 npm 包（16 个文件，无运行时依赖），已发布到 npm registry：
 
 ```bash
-# 1) GitHub Release 的 tarball（推荐）
-npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.1/dsh-waystone-0.1.1.tgz
+npm i dsh-waystone
+```
 
-# 2) 已经下载到本地的同一个 tarball
+装进 DSH：把包名交给插槽管理即可（`pnpm add dsh-waystone` 实测会把 `dsh-waystone` 自动登记进 profile 的 `bundles`）：
+
+```
+plugin_manager(install_bundle, target=dsh-waystone)
+```
+
+不走 registry 的来源（离线 / 钉版本 / 改代码）：
+
+```bash
+# GitHub Release 的 tarball
+npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.2/dsh-waystone-0.1.2.tgz
+
+# 已下载到本地的同一个 tarball
 npm i /path/to/dsh-waystone-0.1.1.tgz
 
-# 3) 从源码（开发/改代码时）
+# 从源码
 git clone https://github.com/lujfsd/dsh-waystone.git
 ```
 
-装进 DSH：把包目录或 `.tgz` 的绝对路径交给插槽管理即可（`pnpm add <tgz>` 实测会把 `dsh-waystone` 自动登记进 profile 的 `bundles`）：
-
-```
-plugin_manager(install_bundle, target=<包目录或 .tgz 的绝对路径>)
-```
+后两种来源装进 DSH 时，`target` 换成包目录或 `.tgz` 的绝对路径。
 
 然后**重启 DSH**：服务端模块与客户端 bundle 都在宿主启动时加载，不重启不会生效。重启后会话顶部出现「路标」标签页，说明装配成功。
-
-> `github.com` 在某些网络下需要走代理：`HTTPS_PROXY=http://127.0.0.1:7897 npm i <上面那个 URL>`。等 `dsh-waystone` 上架 npm 后，这里可以直接用 `npm i dsh-waystone`。
 
 ## 模型每轮看到什么
 
