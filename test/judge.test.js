@@ -103,11 +103,15 @@ test('判官输入保留最新用户话，不被前置长噪音吃掉', () => {
   assert.ok(user.includes(real), '最新用户消息必须出现在判官输入里')
 })
 
-// 回归：scope 判据必须真的进判官 system，否则判官只能靠字面猜 global/workspace。
-test('判官 system 带 scope 判据', () => {
+// 回归：scope 判据必须真的进判官 system，且与契约同源：
+// 旧口径把「以后都/禁止」当跨项目证据，正是局部规则被升进全局库的入口。
+test('判官 system 带 scope 判据（与契约同源，长期词不算跨项目证据）', () => {
   const { system } = buildJudgeInput({})
-  assert.ok(system.includes('以后都/所有项目/每台机器/禁止'))
+  assert.ok(system.includes('global 只有 rule 能进'), system.slice(0, 600))
+  assert.ok(system.includes('所有项目'), '必须点名显式作用域词')
   assert.ok(system.includes('具体项目/目录/文件/命令/工具链'))
+  assert.ok(system.includes('完整分句'), 'quote 必须抄完整分句，否则会被降级')
+  assert.ok(!system.includes('「以后都/所有项目/每台机器/禁止」'), '旧口径必须消失')
 })
 
 // 回归：rule 只收「以后都这么办」的承诺；改这一次的 UI 定稿是决策，别占规约配额。
