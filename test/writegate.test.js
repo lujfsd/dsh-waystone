@@ -376,3 +376,26 @@ test('端到端：判官连续预算型失败 3 次后仍不被关闭（可以�
   const tail = ctx._sections[1].text({ agent })
   assert.ok(!tail.includes('记忆判官不可用'), '预算型失败不该关闭判官：' + tail)
 })
+test('跨工作区撤回：A 撤掉的全局规则在 B 的注入面也消失（失效要落在全局库）', async () => {
+  const home = tmpHome()
+  const workA = fs.mkdtempSync(path.join(os.tmpdir(), 'waystone-wa-'))
+  const workB = fs.mkdtempSync(path.join(os.tmpdir(), 'waystone-wb-'))
+  const ctx = makeCtx(home)
+  apply(ctx, {})
+  const a = { id: 's-x-a', session: { id: 's-x-a', header: { cwd: workA } } }
+  const b = { id: 's-x-b', session: { id: 's-x-b', header: { cwd: workB } } }
+  const quote = '所有项目都别用 pnpm'
+  const body = '所有项目统一用 pnpm，禁用 npm'
+  say(ctx, a, 2, quote)
+  const w = await toolOf(ctx, 'waystone_write').execute({
+    records: [{ kind: 'rule', scope: 'global', body, criteria: '任一项目出现 npm 命令即违规', anchor: { type: 'turn' }, source: { author: 'user', quote }, strength: 'user_said' }],
+  }, { agent: a })
+  const gid = w.accepted[0]
+  assert.ok(ctx._sections[1].text({ agent: b }).includes(body), '先确认 B 能看到这条全局规则')
+  const w2 = await toolOf(ctx, 'waystone_write').execute({
+    records: [{ kind: 'conclusion', body: '这条全局规则是误升，撤回', retracts: gid, reason: 'scope 无跨项目证据', anchor: { type: 'turn' }, source: { author: 'model', quote } }],
+  }, { agent: a })
+  assert.equal(w2.accepted.length, 1, JSON.stringify(w2.rejected))
+  assert.ok(w2.warnings.some((x) => x.code === 'cross_scope_retract_mirrored'), JSON.stringify(w2.warnings))
+  assert.ok(!ctx._sections[1].text({ agent: b }).includes(body), '失效必须镜像到全局库，否则别的工作区照常注入')
+})
