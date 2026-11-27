@@ -29,10 +29,10 @@ plugin_manager(install_bundle, target=dsh-waystone)
 
 ```bash
 # GitHub Release 的 tarball
-npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.2/dsh-waystone-0.1.2.tgz
+npm i https://github.com/lujfsd/dsh-waystone/releases/download/v0.1.3/dsh-waystone-0.1.3.tgz
 
 # 已下载到本地的同一个 tarball
-npm i /path/to/dsh-waystone-0.1.1.tgz
+npm i /path/to/dsh-waystone-0.1.3.tgz
 
 # 从源码
 git clone https://github.com/lujfsd/dsh-waystone.git
